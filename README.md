@@ -44,10 +44,10 @@ python generate_sample_pdf.py
 
 ### 4. Start the backend
 ```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --host 0.0.0.0 --port 10000
 ```
-Backend runs at: http://localhost:8000  
-API docs: http://localhost:8000/docs
+Backend runs at: http://localhost:10000  
+API docs: http://localhost:10000/docs
 
 ### 5. Start the Streamlit UI
 ```bash
@@ -100,13 +100,13 @@ Contextual/
 
 ### Example: Upload PDF
 ```bash
-curl -X POST http://localhost:8000/upload_pdf \
+curl -X POST http://localhost:10000/upload_pdf \
   -F "file=@data/sample_ai_healthcare.pdf"
 ```
 
 ### Example: Query
 ```bash
-curl -X POST http://localhost:8000/query \
+curl -X POST http://localhost:10000/query \
   -H "Content-Type: application/json" \
   -d '{"query": "What are the main applications of AI in healthcare?", "top_k": 5}'
 ```
@@ -162,7 +162,7 @@ See `tests/test_cases.md` for full evaluation instructions.
 |------|----------|
 | [`docs/technical_writeup.md`](docs/technical_writeup.md) | Architecture, retrieval pipeline, anti-hallucination, trade-offs, deployment |
 | [`tests/test_cases.md`](tests/test_cases.md) | 5 valid queries, 3 invalid (refusal), reproducibility + multi-language tests |
-| API reference | http://localhost:8000/docs (when backend is running) |
+| API reference | http://localhost:10000/docs (when backend is running) |
 
 ---
 

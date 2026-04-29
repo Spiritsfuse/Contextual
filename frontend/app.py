@@ -279,7 +279,7 @@ with st.sidebar:
             '<span class="status-err">● Backend Offline</span>',
             unsafe_allow_html=True,
         )
-        st.info("Start the backend:\n```\nuvicorn backend.main:app --reload\n```")
+        st.info("Please check if the backend service is running.")
 
     st.markdown("---")
 
@@ -368,10 +368,7 @@ st.markdown(
 )
 
 if not health:
-    st.error(
-        "⚠️ **Backend is not running.** "
-        "Please start it with: `uvicorn backend.main:app --reload`"
-    )
+    st.error("⚠️ **Backend is not running.** Please check if the backend service is up.")
 elif not health.get("current_pdf"):
     st.info("👈 **Upload a PDF** using the sidebar to get started.")
 
