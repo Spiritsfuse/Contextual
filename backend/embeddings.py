@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 # Default model
 DEFAULT_MODEL = "models/gemini-embedding-001"
 
-# Global client for reuse
+# Global client and cached dimension
 _client_instance: genai.Client | None = None
+_cached_dim: int | None = None
 
 def get_client() -> genai.Client:
     """Singleton for the GenAI client."""
@@ -35,25 +36,44 @@ def get_client() -> genai.Client:
         _client_instance = genai.Client(api_key=api_key)
     return _client_instance
 
+def get_embedding_dim(model_name: str = DEFAULT_MODEL) -> int:
+    """
+    Return the dimensionality of the model. 
+    Performs a one-time dummy call to determine the dimension dynamically.
+    """
+    global _cached_dim
+    if _cached_dim is not None:
+        return _cached_dim
+
+    logger.info(f"Probing model {model_name} for dimensionality...")
+    try:
+        sample = embed_query("probe", model_name=model_name)
+        _cached_dim = sample.shape[1]
+        logger.info(f"Detected dimensionality: {_cached_dim}")
+        return _cached_dim
+    except Exception as e:
+        logger.error(f"Failed to probe model dimension: {e}")
+        # Safe fallback for gemini-embedding-001
+        return 768
+
 def embed_texts(
     texts: List[str],
     model_name: str = DEFAULT_MODEL,
-    batch_size: int = 100,  # Gemini supports large batches
+    batch_size: int = 100,
     show_progress: bool = False,
 ) -> np.ndarray:
     """
     Embed a list of strings using Google's API.
-    Returns: np.ndarray of shape (len(texts), 768), dtype float32, L2-normalized.
     """
     if not texts:
-        return np.empty((0, 768), dtype=np.float32)
+        dim = get_embedding_dim(model_name)
+        return np.empty((0, dim), dtype=np.float32)
 
     client = get_client()
     logger.info(f"Embedding {len(texts)} texts via Google API")
 
     all_embeddings = []
     
-    # Process in batches (Gemini has limits on total tokens/items per call)
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
         response = client.models.embed_content(
@@ -62,17 +82,14 @@ def embed_texts(
             config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         )
         
-        # Extract vectors
         for emb in response.embeddings:
             v = np.array(emb.values, dtype=np.float32)
-            # L2-normalize
             norm = np.linalg.norm(v)
             if norm > 0:
                 v = v / norm
             all_embeddings.append(v)
 
     embeddings = np.stack(all_embeddings)
-    logger.info(f"Embeddings generated: {embeddings.shape}")
     return embeddings
 
 def embed_query(
@@ -91,14 +108,10 @@ def embed_query(
     )
     
     v = np.array(response.embeddings[0].values, dtype=np.float32)
-    # L2-normalize
     norm = np.linalg.norm(v)
     if norm > 0:
         v = v / norm
         
     return v.reshape(1, -1)
 
-def get_embedding_dim(model_name: str = DEFAULT_MODEL) -> int:
-    """Return the dimensionality (768 for text-embedding-004)."""
-    return 768
 
