@@ -27,7 +27,7 @@ Query → Embedding → Retrieval → Gemini → Response
 
 ### 1. Install dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r backend_requirements.txt
 ```
 
 ### 2. Configure API key
