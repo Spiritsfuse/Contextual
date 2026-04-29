@@ -20,7 +20,7 @@ from google.genai import types
 logger = logging.getLogger(__name__)
 
 # Default model
-DEFAULT_MODEL = "text-embedding-004"
+DEFAULT_MODEL = "models/gemini-embedding-001"
 
 # Global client for reuse
 _client_instance: genai.Client | None = None
