@@ -15,7 +15,7 @@ Hallucination Prevention Strategy:
 6. Refusal is also programmatically enforced: if the model's answer doesn't
    reference the context, we check and possibly override.
 
-Model: gemini-2.0-flash (fast, cost-effective, large context window)
+Model: gemini-2.5-flash (fast, cost-effective, large context window)
 """
 
 import logging
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 REFUSAL_PHRASE = "I cannot answer this from the provided document."
 
@@ -206,6 +206,17 @@ def generate_answer(
         raw_answer = response.text.strip() if response.text else ""
 
     except Exception as e:
+        error_msg = str(e).lower()
+        if "429" in error_msg or "resource_exhausted" in error_msg:
+            logger.warning(f"Gemini API Quota Exhausted (429): {e}")
+            return LLMResponse(
+                answer="Temporary API issue or quota limitation. Please try again later.",
+                citations=[],
+                is_refusal=True,
+                raw_response=str(e),
+                context_used=[c.chunk_id for c in retrieved_chunks],
+            )
+        
         logger.error(f"Gemini API error: {e}")
         raise RuntimeError(f"Gemini API error: {e}") from e
 
