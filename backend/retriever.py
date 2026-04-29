@@ -25,7 +25,7 @@ import numpy as np
 from langdetect import DetectorFactory, detect as _detect_lang
 from deep_translator import GoogleTranslator
 
-from .embeddings import embed_query
+from .embeddings import embed_query, DEFAULT_MODEL
 from .pdf_processor import TextChunk
 from .vector_store import VectorStore
 
@@ -127,7 +127,7 @@ def retrieve(
     query: str,
     vector_store: VectorStore,
     top_k: int = 5,
-    model_name: str = "all-MiniLM-L6-v2",
+    model_name: str = DEFAULT_MODEL,
 ) -> RetrievalResult:
     """
     Full retrieval pipeline for a single query.

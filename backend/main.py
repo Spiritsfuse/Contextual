@@ -35,7 +35,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .embeddings import embed_texts, get_embedding_dim
+from .embeddings import embed_texts, get_embedding_dim, DEFAULT_MODEL
 from .llm import REFUSAL_PHRASE, generate_answer
 from .pdf_processor import process_pdf
 from .retriever import retrieve, translate_from_english
@@ -219,7 +219,7 @@ async def health_check():
         status="ok",
         index_size=len(store),
         current_pdf=app.state.current_pdf_name,
-        model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+        model=DEFAULT_MODEL,
         log_file=str(LOG_FILE),
     )
 
