@@ -40,7 +40,7 @@ class VectorStore:
         dim:       Embedding dimensionality.
     """
 
-    def __init__(self, dim: int = 384):
+    def __init__(self, dim: int = 768):
         self.dim = dim
         self.index: faiss.Index = faiss.IndexFlatIP(dim)
         self.metadata: List[TextChunk] = []
@@ -153,7 +153,15 @@ class VectorStore:
             logger.info("No persisted index found — starting fresh")
             return False
 
-        self.index = faiss.read_index(str(index_path))
+        loaded_index = faiss.read_index(str(index_path))
+        if loaded_index.d != self.dim:
+            logger.warning(
+                f"Dimension mismatch in saved index: expected {self.dim}, got {loaded_index.d}. "
+                "Ignoring saved index."
+            )
+            return False
+
+        self.index = loaded_index
         with open(meta_path, "rb") as f:
             self.metadata = pickle.load(f)
 

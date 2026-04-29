@@ -1,111 +1,104 @@
 """
 embeddings.py
 -------------
-Manages the sentence-transformers embedding model.
+Manages embeddings via Google Gemini's Embedding API.
 
 Design decisions:
-- Model: all-MiniLM-L6-v2 (384-dim, ~80MB, fast inference, strong retrieval quality)
-- Singleton pattern: model loaded once, reused across requests.
-- Embeddings are L2-normalized before return, enabling cosine similarity
-  via simple dot product (FAISS IndexFlatIP).
-- Deterministic: same text always produces same embedding (no randomness).
+- Model: text-embedding-004 (768-dim, high quality, cloud-based)
+- Efficiency: Cloud-based, removing need for massive Torch/local model dependencies (fixing Render OOM).
+- L2-normalization: Embeddings are normalized to support dot product similarity.
 """
 
 import logging
+import os
 from typing import List
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
-# Default model — change here to upgrade (e.g. all-mpnet-base-v2 for higher accuracy)
-DEFAULT_MODEL = "all-MiniLM-L6-v2"
+# Default model
+DEFAULT_MODEL = "text-embedding-004"
 
-# Module-level singleton
-_model_instance: SentenceTransformer | None = None
-_model_name_loaded: str | None = None
+# Global client for reuse
+_client_instance: genai.Client | None = None
 
-
-def get_model(model_name: str = DEFAULT_MODEL) -> SentenceTransformer:
-    """
-    Return the singleton embedding model, loading it on first call.
-
-    Thread-safe note: In a multi-worker server, each worker process has
-    its own singleton (standard Python behavior). The model is read-only
-    after loading so this is safe.
-    """
-    global _model_instance, _model_name_loaded
-
-    if _model_instance is None or _model_name_loaded != model_name:
-        logger.info(f"Loading sentence-transformer model: {model_name}")
-        _model_instance = SentenceTransformer(model_name)
-        _model_name_loaded = model_name
-        logger.info("Embedding model loaded successfully")
-
-    return _model_instance
-
+def get_client() -> genai.Client:
+    """Singleton for the GenAI client."""
+    global _client_instance
+    if _client_instance is None:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY environment variable not set.")
+        _client_instance = genai.Client(api_key=api_key)
+    return _client_instance
 
 def embed_texts(
     texts: List[str],
     model_name: str = DEFAULT_MODEL,
-    batch_size: int = 64,
+    batch_size: int = 100,  # Gemini supports large batches
     show_progress: bool = False,
 ) -> np.ndarray:
     """
-    Embed a list of text strings and return L2-normalized vectors.
-
-    Args:
-        texts:        List of strings to embed.
-        model_name:   sentence-transformers model name.
-        batch_size:   Encoding batch size (tune for memory/speed trade-off).
-        show_progress: Show tqdm progress bar (useful for large corpora).
-
-    Returns:
-        np.ndarray of shape (len(texts), embedding_dim), dtype float32, L2-normalized.
+    Embed a list of strings using Google's API.
+    Returns: np.ndarray of shape (len(texts), 768), dtype float32, L2-normalized.
     """
     if not texts:
-        return np.empty((0, 384), dtype=np.float32)
+        return np.empty((0, 768), dtype=np.float32)
 
-    model = get_model(model_name)
-    logger.info(f"Embedding {len(texts)} texts (batch_size={batch_size})")
+    client = get_client()
+    logger.info(f"Embedding {len(texts)} texts via Google API")
 
-    embeddings = model.encode(
-        texts,
-        batch_size=batch_size,
-        show_progress_bar=show_progress,
-        normalize_embeddings=True,    # L2-normalize → cosine sim = dot product
-        convert_to_numpy=True,
-    )
+    all_embeddings = []
+    
+    # Process in batches (Gemini has limits on total tokens/items per call)
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i : i + batch_size]
+        response = client.models.embed_content(
+            model=model_name,
+            contents=batch,
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+        )
+        
+        # Extract vectors
+        for emb in response.embeddings:
+            v = np.array(emb.values, dtype=np.float32)
+            # L2-normalize
+            norm = np.linalg.norm(v)
+            if norm > 0:
+                v = v / norm
+            all_embeddings.append(v)
 
-    # Ensure float32 (FAISS requirement)
-    embeddings = embeddings.astype(np.float32)
-
-    logger.info(f"Embeddings shape: {embeddings.shape}")
+    embeddings = np.stack(all_embeddings)
+    logger.info(f"Embeddings generated: {embeddings.shape}")
     return embeddings
-
 
 def embed_query(
     query: str,
     model_name: str = DEFAULT_MODEL,
 ) -> np.ndarray:
-    """
-    Embed a single query string.
-
-    Returns:
-        np.ndarray of shape (1, embedding_dim), float32, L2-normalized.
-    """
+    """Embed a single query string."""
     if not query or not query.strip():
         raise ValueError("Query text cannot be empty.")
 
-    result = embed_texts([query.strip()], model_name=model_name, batch_size=1)
-    return result  # shape (1, dim)
-
+    client = get_client()
+    response = client.models.embed_content(
+        model=model_name,
+        contents=query.strip(),
+        config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
+    )
+    
+    v = np.array(response.embeddings[0].values, dtype=np.float32)
+    # L2-normalize
+    norm = np.linalg.norm(v)
+    if norm > 0:
+        v = v / norm
+        
+    return v.reshape(1, -1)
 
 def get_embedding_dim(model_name: str = DEFAULT_MODEL) -> int:
-    """Return the embedding dimensionality for the given model."""
-    model = get_model(model_name)
-    # API changed in sentence-transformers 3.x: prefer get_embedding_dimension
-    if hasattr(model, "get_embedding_dimension"):
-        return model.get_embedding_dimension()
-    return model.get_sentence_embedding_dimension()  # legacy fallback
+    """Return the dimensionality (768 for text-embedding-004)."""
+    return 768
+
