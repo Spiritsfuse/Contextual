@@ -211,6 +211,12 @@ def _log_query_event(
 # Endpoints
 # -----------------------------------------------------------------------
 
+@app.get("/", tags=["System"])
+async def root():
+    """Root endpoint for basic connectivity check."""
+    return {"message": "PDF-Constrained Conversational Agent API is running"}
+
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """Health check — returns index status and configuration."""

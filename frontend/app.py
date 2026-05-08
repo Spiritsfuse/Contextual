@@ -161,6 +161,18 @@ if "session_id" not in st.session_state:
     import uuid
     st.session_state.session_id = str(uuid.uuid4())[:8]
 
+# -----------------------------------------------------------------------
+# Startup Ping — ensures backend is awake
+# -----------------------------------------------------------------------
+if "has_pinged_backend" not in st.session_state:
+    try:
+        # Silently ping the backend to wake it up
+        requests.get(f"{BACKEND_URL}/health", timeout=5)
+        st.session_state.has_pinged_backend = True
+    except Exception:
+        # If it fails, we'll try again on the next run or via the sidebar check
+        pass
+
 
 # -----------------------------------------------------------------------
 # Helper functions
