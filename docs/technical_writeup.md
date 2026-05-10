@@ -43,7 +43,8 @@ retriever.py                               │
 llm.py                                     │
   - Build context block from chunks ←──────┘
   - Strict system prompt
-  - Gemini 1.5 Flash: temperature=0, top_k=1
+  - Gemini 3.1 Flash Lite (primary) | Gemini 2.5 Flash (fallback)
+  - Temperature=0, top_k=1
   - Extract page citations from response
   - Back-translate response if needed
     │
@@ -90,8 +91,8 @@ corpora (tens to thousands of chunks), exhaustive search is fast enough (<5ms) a
 guarantees finding the true nearest neighbors (no approximation error).
 
 ### Step 5: Answer Generation
-The retrieved chunks are formatted into a structured context block and passed to
-Gemini 1.5 Flash with a strict system prompt. The prompt architecture:
+The retrieved chunks are formatted into a structured context block and passed to Gemini 3.1 Flash Lite (with fallback to 2.5 Flash) with a strict system prompt.
+ The prompt architecture:
 - System instruction: defines the QA role with explicit refusal rules
 - Context block: per-chunk text with page number headers
 - User message: question + reminder of constraints

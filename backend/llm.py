@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_PRIMARY_MODEL = os.getenv("GEMINI_PRIMARY_MODEL", "gemini-3.1-flash-lite")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-2.5-flash")
 
 REFUSAL_PHRASE = "I cannot answer this from the provided document."
 
@@ -87,7 +88,7 @@ def _get_client() -> genai.Client:
         )
 
     _client = genai.Client(api_key=GEMINI_API_KEY)
-    logger.info(f"Gemini client initialized with model: {GEMINI_MODEL}")
+    logger.info("Gemini client initialized")
     return _client
 
 
@@ -149,7 +150,7 @@ def _build_context_block(chunks: List[RetrievedChunk]) -> str:
 def generate_answer(
     question: str,
     retrieved_chunks: List[RetrievedChunk],
-    model_name: str = GEMINI_MODEL,
+    model_name: str = GEMINI_PRIMARY_MODEL,
     temperature: float = 0.0,
 ) -> LLMResponse:
     """
@@ -185,25 +186,45 @@ def generate_answer(
     user_message = USER_QUERY_TEMPLATE.format(question=question)
     full_prompt = f"{context_block}\n\n{user_message}"
 
-    logger.info(f"Sending query to Gemini ({model_name}): {question[:100]}")
+    logger.info(f"Sending query to Gemini: {question[:100]}")
     logger.debug(f"Context block length: {len(context_block)} chars")
 
     try:
         client = _get_client()
 
-        response = client.models.generate_content(
-            model=model_name,
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                temperature=temperature,
-                top_p=1.0,
-                top_k=1,          # greedy decoding for determinism
-                candidate_count=1,
-            ),
-        )
+        try:
+            logger.info(f"Attempting generation with primary model: {model_name}")
+            response = client.models.generate_content(
+                model=model_name,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=temperature,
+                    top_p=1.0,
+                    top_k=1,
+                    candidate_count=1,
+                ),
+            )
+            actual_model_used = model_name
+        except Exception as e:
+            logger.warning(f"Primary model ({model_name}) failed: {e}")
+            logger.info(f"Falling back to secondary model: {GEMINI_FALLBACK_MODEL}")
+            
+            response = client.models.generate_content(
+                model=GEMINI_FALLBACK_MODEL,
+                contents=full_prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=SYSTEM_PROMPT,
+                    temperature=temperature,
+                    top_p=1.0,
+                    top_k=1,
+                    candidate_count=1,
+                ),
+            )
+            actual_model_used = GEMINI_FALLBACK_MODEL
 
         raw_answer = response.text.strip() if response.text else ""
+        logger.info(f"Generation successful using model: {actual_model_used}")
 
     except Exception as e:
         error_msg = str(e).lower()
@@ -217,8 +238,8 @@ def generate_answer(
                 context_used=[c.chunk_id for c in retrieved_chunks],
             )
         
-        logger.error(f"Gemini API error: {e}")
-        raise RuntimeError(f"Gemini API error: {e}") from e
+        logger.error(f"Gemini API error after fallback attempts: {e}")
+        raise RuntimeError(f"Gemini API error after fallback attempts: {e}") from e
 
     # Check for refusal
     is_refusal = REFUSAL_PHRASE.lower() in raw_answer.lower()

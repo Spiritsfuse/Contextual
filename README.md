@@ -150,7 +150,7 @@ See `tests/test_cases.md` for full evaluation instructions.
 | Frontend | Streamlit | Rapid prototyping, interactive |
 | Embeddings | all-MiniLM-L6-v2 | Free, local, high quality |
 | Vector DB | FAISS IndexFlatIP | Exact cosine search, deterministic |
-| LLM | Gemini 1.5 Flash | Fast, large context, free tier |
+| LLM | Gemini 3.1 Flash Lite (primary) + 2.5 Flash (fallback) | High quota, fast, and robust with fallback |
 | PDF | PyMuPDF | Best text extraction quality |
 | Multi-lang | langdetect + deep-translator | No API key required |
 

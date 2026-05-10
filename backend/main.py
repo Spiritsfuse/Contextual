@@ -36,7 +36,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from .embeddings import embed_texts, get_embedding_dim, DEFAULT_MODEL
-from .llm import REFUSAL_PHRASE, generate_answer, GEMINI_MODEL
+from .llm import REFUSAL_PHRASE, generate_answer, GEMINI_PRIMARY_MODEL, GEMINI_FALLBACK_MODEL
 from .pdf_processor import process_pdf
 from .retriever import retrieve, translate_from_english
 from .vector_store import VectorStore
@@ -231,7 +231,7 @@ async def health_check():
         status="ok",
         index_size=len(store),
         current_pdf=app.state.current_pdf_name,
-        model=f"LLM: {GEMINI_MODEL} | Embedding: {DEFAULT_MODEL}",
+        model=f"LLM: {GEMINI_PRIMARY_MODEL} (fallback: {GEMINI_FALLBACK_MODEL}) | Embedding: {DEFAULT_MODEL}",
         log_file=str(LOG_FILE),
     )
 
