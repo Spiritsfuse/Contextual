@@ -167,7 +167,7 @@ if "session_id" not in st.session_state:
 if "has_pinged_backend" not in st.session_state:
     try:
         # Silently ping the backend to wake it up
-        requests.get(f"{BACKEND_URL}/health", timeout=5)
+        requests.get(f"{BACKEND_URL}/ping", timeout=5)
         st.session_state.has_pinged_backend = True
     except Exception:
         # If it fails, we'll try again on the next run or via the sidebar check

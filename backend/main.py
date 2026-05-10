@@ -217,6 +217,12 @@ async def root():
     return {"message": "PDF-Constrained Conversational Agent API is running"}
 
 
+@app.get("/ping", tags=["System"])
+async def ping():
+    """Lightweight health check."""
+    return {"status": "ok"}
+
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
     """Health check — returns index status and configuration."""
