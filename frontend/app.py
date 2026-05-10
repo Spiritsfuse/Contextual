@@ -21,6 +21,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# -----------------------------------------------------------------------
+# Lightweight Ping Mode (for uptime monitoring & cron-job compatibility)
+# -----------------------------------------------------------------------
+if st.query_params.get("ping") == "1":
+    st.write("ok")
+    st.stop()
+
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 TOP_K = int(os.getenv("TOP_K", 5))
 
