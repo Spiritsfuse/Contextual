@@ -28,7 +28,10 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
-from .retriever import RetrievedChunk
+# Prevent circular import at runtime
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .retriever import RetrievedChunk
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -132,7 +135,7 @@ def _extract_page_citations(text: str) -> List[int]:
     return sorted(pages)
 
 
-def _build_context_block(chunks: List[RetrievedChunk]) -> str:
+def _build_context_block(chunks: List["RetrievedChunk"]) -> str:
     """Format retrieved chunks into the context block for the prompt."""
     parts = []
     for chunk in chunks:
@@ -149,7 +152,7 @@ def _build_context_block(chunks: List[RetrievedChunk]) -> str:
 
 def generate_answer(
     question: str,
-    retrieved_chunks: List[RetrievedChunk],
+    retrieved_chunks: List["RetrievedChunk"],
     model_name: str = GEMINI_PRIMARY_MODEL,
     temperature: float = 0.0,
 ) -> LLMResponse:

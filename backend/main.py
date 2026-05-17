@@ -119,6 +119,7 @@ class QueryRequest(BaseModel):
         default=None,
         description="Optional session identifier for log correlation"
     )
+    use_crag: bool = Field(default=True, description="Enable or disable Corrective RAG (CRAG) pipeline")
 
 
 class RetrievedChunkResponse(BaseModel):
@@ -352,6 +353,7 @@ async def query(request: QueryRequest):
             query=request.query,
             vector_store=store,
             top_k=top_k,
+            use_crag=request.use_crag,
         )
 
         # Step 4: Generate answer (in English)
